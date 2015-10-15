@@ -111,6 +111,10 @@ var GooogleSpreadsheet = function( ss_key, auth_id, options ){
           }
         }
 
+        // Need for batch for some reason
+        // https://stackoverflow.com/questions/20841411
+        headers['If-Match'] = "*";
+
         if ( method == 'POST' || method == 'PUT' ){
           headers['content-type'] = 'application/atom+xml';
         }
@@ -270,6 +274,17 @@ var SpreadsheetWorksheet = function( spreadsheet, data ){
   self.rowCount = data['gs:rowCount'];
   self.colCount = data['gs:colCount'];
 
+  Object.keys(data).forEach(function(key) {
+    var val = data[key];
+      if ( key == 'link' ){
+        self['_links'] = [];
+        val = forceArray( val );
+        val.forEach( function( link ){
+          self['_links'][ link['$']['rel'] ] = link['$']['href'];
+        });
+      }
+  }, this);
+
   this.getRows = function( opts, cb ){
     spreadsheet.getRows( self.id, opts, cb );
   }
@@ -279,6 +294,48 @@ var SpreadsheetWorksheet = function( spreadsheet, data ){
   this.addRow = function( data, cb ){
     spreadsheet.addRow( self.id, data, cb );
   }
+  this.save = function(cb) {
+    var data_xml = '<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gs="http://schemas.google.com/spreadsheets/2006">' +
+      '<title>' + xmlSafeValue(self.title) + '</title>' +
+      '<gs:rowCount>' + self.rowCount + '</gs:rowCount>' +
+      '<gs:colCount>' + self.colCount + '</gs:colCount>' +
+      '</entry>';
+
+    spreadsheet.makeFeedRequest(self._links.edit, 'PUT', data_xml, cb);
+  }
+
+  this.del = function(worksheet_id, cb) {
+    self.makeFeedRequest(self._links.edit, 'DELETE', null, cb);
+  }
+
+  this.batchUpdate = function(data, cb) {
+    var baseLink = self._links['http://schemas.google.com/spreadsheets/2006#cellsfeed'];
+    var data_xml = '<feed xmlns="http://www.w3.org/2005/Atom"' +
+      ' xmlns:batch="http://schemas.google.com/gdata/batch"' +
+      ' xmlns:gs="http://schemas.google.com/spreadsheets/2006">' +
+      '<id>' + baseLink + '</id>';
+
+    var entries = data.map(function(entry, i) {
+      var cellId = 'R' + entry.row + 'C' + entry.col;
+      var d = '<entry xmlns="http://www.w3.org/2005/Atom">';
+
+      d += '<batch:id>' + i + '</batch:id>';
+      d += '<batch:operation type="update"/>';
+      d += '<title type="text">' + i + '</title>';
+      d += '<id>' + baseLink + '/' + cellId + '</id>';
+      d += '<link rel="edit" type="application/atom+xml"';
+      d += '  href="' + baseLink + '/' + cellId + '/0"/>';
+      d += '<gs:cell row="' + entry.row + '" col="' + entry.col + '" inputValue="' + xmlSafeValue(entry.value) + '"/>';
+
+      d += '</entry>';
+
+      return d;
+    });
+
+    data_xml += entries.join('') + '</feed>';
+
+    spreadsheet.makeFeedRequest(baseLink + '/batch', 'POST', data_xml, cb);
+  };
 }
 
 var SpreadsheetRow = function( spreadsheet, data, xml ){

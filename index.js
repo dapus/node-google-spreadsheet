@@ -173,6 +173,16 @@ var GooogleSpreadsheet = function( ss_key, auth_id, options ){
     });
   }
 
+  this.addWorksheet = function(options, cb) {
+    var data_xml = '<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gs="http://schemas.google.com/spreadsheets/2006">' +
+      '<title>' + options.title + '</title>' +
+      '<gs:rowCount>' + options.rowCount + '</gs:rowCount>' +
+      '<gs:colCount>' + options.colCount + '</gs:colCount>' +
+      '</entry>';
+
+    self.makeFeedRequest( ["worksheets", ss_key], 'POST', data_xml, cb);
+  }
+
   // NOTE: worksheet IDs start at 1
 
   this.getRows = function( worksheet_id, opts, cb ){

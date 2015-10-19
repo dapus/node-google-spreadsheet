@@ -184,7 +184,9 @@ var GooogleSpreadsheet = function( ss_key, auth_id, options ){
       '<gs:colCount>' + options.colCount + '</gs:colCount>' +
       '</entry>';
 
-    self.makeFeedRequest( ["worksheets", ss_key], 'POST', data_xml, cb);
+    self.makeFeedRequest( ["worksheets", ss_key], 'POST', data_xml, function(err, data, xml) {
+      cb(err, new SpreadsheetWorksheet(self, data));
+    });
   }
 
   // NOTE: worksheet IDs start at 1

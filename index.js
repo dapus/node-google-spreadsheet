@@ -82,9 +82,15 @@ var GooogleSpreadsheet = function( ss_key, auth_id, options ){
   }
 
   // This method is used internally to make all requests
-  this.makeFeedRequest = function( url_params, method, query_or_data, cb ){
+  this.makeFeedRequest = function( url_params, method, query_or_data, extra_headers, cb ){
     var url;
     var headers = {};
+
+    if(typeof extra_headers === 'function' && !cb) {
+      cb = extra_headers;
+      extra_headers = {};
+    }
+
     if (!cb ) cb = function(){};
     if ( typeof(url_params) == 'string' ) {
       // used for edit / delete requests
@@ -111,10 +117,6 @@ var GooogleSpreadsheet = function( ss_key, auth_id, options ){
           }
         }
 
-        // Need for batch for some reason
-        // https://stackoverflow.com/questions/20841411
-        headers['If-Match'] = "*";
-
         if ( method == 'POST' || method == 'PUT' ){
           headers['content-type'] = 'application/atom+xml';
         }
@@ -122,6 +124,8 @@ var GooogleSpreadsheet = function( ss_key, auth_id, options ){
         if ( method == 'GET' && query_or_data ) {
           url += "?" + querystring.stringify( query_or_data );
         }
+
+        headers = _.extend(headers, extra_headers);
 
         request( {
           url: url,
@@ -336,7 +340,11 @@ var SpreadsheetWorksheet = function( spreadsheet, data ){
 
     data_xml += entries.join('') + '</feed>';
 
-    spreadsheet.makeFeedRequest(baseLink + '/batch', 'POST', data_xml, cb);
+    // Need for batch for some reason
+    // https://stackoverflow.com/questions/20841411
+    var headers = {'If-Match': '*'};
+
+    spreadsheet.makeFeedRequest(baseLink + '/batch', 'POST', data_xml, headers, cb);
   };
 }
 

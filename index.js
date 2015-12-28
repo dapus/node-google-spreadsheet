@@ -189,6 +189,10 @@ var GooogleSpreadsheet = function( ss_key, auth_id, options ){
       '</entry>';
 
     self.makeFeedRequest( ["worksheets", ss_key], 'POST', data_xml, function(err, data, xml) {
+      if(err) {
+        return cb(err);
+      }
+
       cb(err, new SpreadsheetWorksheet(self, data));
     });
   }
